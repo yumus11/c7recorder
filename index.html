@@ -154,7 +154,7 @@
             background-color: #ecf5ff;
         }
 
-        /* ========== 附件预览区域样式 ========== */
+        /* 附件预览区域 */
         .attach-wrap {
             border: 1px dashed #dcdfe6;
             border-radius: 8px;
@@ -288,12 +288,12 @@
                 <textarea id="content" name="content" placeholder="请输入详细内容" required></textarea>
             </div>
 
-            <!-- 附件：支持预览、多次选择、删除 -->
+            <!-- 附件：无文件类型限制 -->
             <div class="form-item">
                 <label>附件（选填，最多4个）</label>
                 <div class="attach-wrap">
                     <label class="attach-input-label" for="attachment">+ 添加附件</label>
-                    <input type="file" id="attachment" multiple accept="image/*,*/*">
+                    <input type="file" id="attachment" multiple>
                     <div id="fileList" class="file-list"></div>
                     <div class="file-count-tip" id="fileCountTip">已添加 0 个，最多 4 个</div>
                 </div>
@@ -327,32 +327,26 @@
         const fileInput = document.getElementById('attachment');
         const fileListEl = document.getElementById('fileList');
         const fileCountTip = document.getElementById('fileCountTip');
-        let selectedFiles = []; // 存储选中的文件对象
+        let selectedFiles = [];
 
-        // 监听文件选择
         fileInput.addEventListener('change', function(e) {
             const newFiles = Array.from(e.target.files);
-            // 数量校验
             if (selectedFiles.length + newFiles.length > 4) {
                 showTip('最多只能上传4个附件', 'error');
                 fileInput.value = '';
                 return;
             }
-            // 追加到文件列表
             selectedFiles = selectedFiles.concat(newFiles);
             renderFileList();
-            // 清空input，支持重复选择同一文件
             fileInput.value = '';
         });
 
-        // 渲染文件列表（带预览）
         function renderFileList() {
             fileListEl.innerHTML = '';
             selectedFiles.forEach((file, index) => {
                 const item = document.createElement('div');
                 item.className = 'file-item';
 
-                // 删除按钮
                 const delBtn = document.createElement('div');
                 delBtn.className = 'file-del';
                 delBtn.textContent = '×';
@@ -363,7 +357,6 @@
                 });
                 item.appendChild(delBtn);
 
-                // 图片预览 / 普通文件显示
                 if (file.type.startsWith('image/')) {
                     const img = document.createElement('img');
                     const reader = new FileReader();
@@ -472,7 +465,6 @@
                 return;
             }
 
-            // 生成文件名前缀
             const datePart = datetimeValue.replace(/-/g, '').split('T')[0];
             const timePart = datetimeValue.split('T')[1].replace(':', '');
             const datetimeStr = `${datePart}_${timePart}`;
@@ -494,7 +486,6 @@
                 });
             }
 
-            // 下载Markdown
             downloadFile(mdContent, mdFileName, 'text/markdown;charset=utf-8');
 
             // 批量下载附件
@@ -513,7 +504,6 @@
             document.getElementById('student').focus();
         });
 
-        // 通用下载函数
         function downloadFile(data, fileName, mimeType) {
             let blob;
             if (data instanceof File) {
