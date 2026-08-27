@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>班级记录</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f5f7fa;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        h1 {
+            font-size: 22px;
+            text-align: center;
+            margin-bottom: 24px;
+            color: #2c3e50;
+        }
+        .form-item {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        input[type="datetime-local"],
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #e4e7ed;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+            background: #fff;
+        }
+        input:focus,
+        textarea:focus {
+            border-color: #409eff;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .type-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .type-item {
+            position: relative;
+        }
+        .type-item input {
+            position: absolute;
+            opacity: 0;
+        }
+        .type-item label {
+            display: block;
+            text-align: center;
+            padding: 10px 0;
+            border: 1px solid #e4e7ed;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0;
+            transition: all 0.2s;
+        }
+        .type-item input:checked + label {
+            background-color: #ecf5ff;
+            border-color: #409eff;
+            color: #409eff;
+            font-weight: 500;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background-color: #409eff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 17px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background-color 0.2s;
+        }
+        .submit-btn:active {
+            background-color: #3a8ee6;
+        }
+        .tip {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 14px;
+            min-height: 20px;
+        }
+        .tip.success {
+            color: #67c23a;
+        }
+        .tip.error {
+            color: #f56c6c;
+        }
+
+        /* 学生下拉框 */
+        .student-wrap {
+            position: relative;
+        }
+        .student-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 240px;
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid #e4e7ed;
+            border-radius: 0 0 8px 8px;
+            z-index: 9999;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-top: -1px;
+        }
+        .student-dropdown.show {
+            display: block;
+        }
+        .student-option {
+            padding: 12px 14px;
+            font-size: 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f5f7fa;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .student-option:last-child {
+            border-bottom: none;
+        }
+        .student-option:active {
+            background-color: #ecf5ff;
+        }
+
+        /* ========== 附件预览区域样式 ========== */
+        .attach-wrap {
+            border: 1px dashed #dcdfe6;
+            border-radius: 8px;
+            padding: 12px;
+            background: #fafafa;
+        }
+        .attach-input-label {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #ecf5ff;
+            color: #409eff;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: background 0.2s;
+        }
+        .attach-input-label:active {
+            background: #d9ecff;
+        }
+        #attachment {
+            display: none;
+        }
+        .file-list {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .file-item {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #fff;
+            border: 1px solid #ebeef5;
+        }
+        .file-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .file-item .file-name {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 4px 6px;
+            font-size: 11px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-del {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 20px;
+            height: 20px;
+            line-height: 18px;
+            text-align: center;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border-radius: 50%;
+            font-size: 14px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .file-count-tip {
+            font-size: 12px;
+            color: #909399;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>班级记录</h1>
+        <form id="recordForm">
+            <!-- 记录类型 -->
+            <div class="form-item">
+                <label>记录类型</label>
+                <div class="type-group">
+                    <div class="type-item">
+                        <input type="radio" name="type" id="type1" value="请假" checked>
+                        <label for="type1">请假</label>
+                    </div>
+                    <div class="type-item">
+                        <input type="radio" name="type" id="type2" value="迟到">
+                        <label for="type2">迟到</label>
+                    </div>
+                    <div class="type-item">
+                        <input type="radio" name="type" id="type3" value="卫生">
+                        <label for="type3">卫生</label>
+                    </div>
+                    <div class="type-item">
+                        <input type="radio" name="type" id="type4" value="违纪">
+                        <label for="type4">违纪</label>
+                    </div>
+                    <div class="type-item">
+                        <input type="radio" name="type" id="type5" value="谈话">
+                        <label for="type5">谈话</label>
+                    </div>
+                    <div class="type-item">
+                        <input type="radio" name="type" id="type6" value="家校">
+                        <label for="type6">家校</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 日期时间 -->
+            <div class="form-item">
+                <label for="datetime">日期时间</label>
+                <input type="datetime-local" id="datetime" name="datetime" required>
+            </div>
+
+            <!-- 学生姓名 -->
+            <div class="form-item">
+                <label for="student">学生姓名</label>
+                <div class="student-wrap">
+                    <input type="text" id="student" name="student" placeholder="输入姓名或首字母快速选择" autocomplete="off" required>
+                    <div id="studentDropdown" class="student-dropdown"></div>
+                </div>
+            </div>
+
+            <!-- 记录内容 -->
+            <div class="form-item">
+                <label for="content">记录内容</label>
+                <textarea id="content" name="content" placeholder="请输入详细内容" required></textarea>
+            </div>
+
+            <!-- 附件：支持预览、多次选择、删除 -->
+            <div class="form-item">
+                <label>附件（选填，最多4个）</label>
+                <div class="attach-wrap">
+                    <label class="attach-input-label" for="attachment">+ 添加附件</label>
+                    <input type="file" id="attachment" multiple accept="image/*,*/*">
+                    <div id="fileList" class="file-list"></div>
+                    <div class="file-count-tip" id="fileCountTip">已添加 0 个，最多 4 个</div>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn">提交并生成记录</button>
+            <div id="tip" class="tip"></div>
+        </form>
+    </div>
+
+    <script>
+        // ========== 学生名单 + 拼音首字母 ==========
+        const students = [
+            "王雅琪", "陈飞扬", "邓文轩", "蒋歆怿", "张新冉", "刘家成", "孟大", "王浩然",
+            "孙艺菲", "杨思博", "申语轩", "张译霖", "王孜睿", "刘羿铭", "李承泽", "耿宇轩",
+            "常译丹", "祖梓晨", "李昊宇", "王以诺", "鲁梦汐", "曹展硕", "张琪悦", "闫馨予",
+            "孙逸潇", "周骏哲", "马子晴", "孙贝尔", "赵梓棋", "孙欣怡", "刘怀聪", "刘芮涵",
+            "周雨泽", "王鹏霄", "李泽瑞", "胡晨洋", "仝诺一", "孙萌隅", "于昕冉", "李登旭",
+            "郁雨晴", "刘弈晨", "蒋涵涵", "万俊驰", "杨旭杰", "张悦熙", "王禹棋"
+        ];
+        const nameInitials = [
+            "wyq", "cfy", "dwx", "jxy", "zxr", "ljc", "md", "whr",
+            "syf", "ysb", "syx", "zyl", "wzr", "lym", "lcz", "gyx",
+            "cyd", "zzc", "lhy", "wyn", "lmx", "czs", "zqy", "yxy",
+            "syx", "zjz", "mzq", "sbe", "zzq", "sxy", "lhc", "lrh",
+            "zyz", "wpx", "lzr", "hcy", "tny", "smy", "yxr", "ldx",
+            "yyq", "lyc", "jhh", "wjc", "yxj", "zyx", "wyq"
+        ];
+
+        // ========== 附件管理 ==========
+        const fileInput = document.getElementById('attachment');
+        const fileListEl = document.getElementById('fileList');
+        const fileCountTip = document.getElementById('fileCountTip');
+        let selectedFiles = []; // 存储选中的文件对象
+
+        // 监听文件选择
+        fileInput.addEventListener('change', function(e) {
+            const newFiles = Array.from(e.target.files);
+            // 数量校验
+            if (selectedFiles.length + newFiles.length > 4) {
+                showTip('最多只能上传4个附件', 'error');
+                fileInput.value = '';
+                return;
+            }
+            // 追加到文件列表
+            selectedFiles = selectedFiles.concat(newFiles);
+            renderFileList();
+            // 清空input，支持重复选择同一文件
+            fileInput.value = '';
+        });
+
+        // 渲染文件列表（带预览）
+        function renderFileList() {
+            fileListEl.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+
+                // 删除按钮
+                const delBtn = document.createElement('div');
+                delBtn.className = 'file-del';
+                delBtn.textContent = '×';
+                delBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    selectedFiles.splice(index, 1);
+                    renderFileList();
+                });
+                item.appendChild(delBtn);
+
+                // 图片预览 / 普通文件显示
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                    item.appendChild(img);
+                } else {
+                    const nameEl = document.createElement('div');
+                    nameEl.className = 'file-name';
+                    nameEl.textContent = file.name;
+                    item.appendChild(nameEl);
+                }
+
+                fileListEl.appendChild(item);
+            });
+            fileCountTip.textContent = `已添加 ${selectedFiles.length} 个，最多 4 个`;
+        }
+
+        // ========== 姓名联想 ==========
+        const studentInput = document.getElementById('student');
+        const studentDropdown = document.getElementById('studentDropdown');
+        let isComposing = false;
+        let debounceTimer = null;
+
+        function matchNames() {
+            const keyword = studentInput.value.trim();
+            if (!keyword) {
+                studentDropdown.classList.remove('show');
+                return;
+            }
+            const keywordLower = keyword.toLowerCase();
+
+            const matched = [];
+            for (let i = 0; i < students.length; i++) {
+                if (students[i].includes(keyword) || nameInitials[i].includes(keywordLower)) {
+                    matched.push(students[i]);
+                }
+            }
+
+            if (matched.length === 0) {
+                studentDropdown.classList.remove('show');
+                return;
+            }
+
+            studentDropdown.innerHTML = '';
+            matched.forEach(name => {
+                const item = document.createElement('div');
+                item.className = 'student-option';
+                item.textContent = name;
+                item.addEventListener('click', function() {
+                    studentInput.value = name;
+                    studentDropdown.classList.remove('show');
+                    document.getElementById('content').focus();
+                });
+                studentDropdown.appendChild(item);
+            });
+            studentDropdown.classList.add('show');
+        }
+
+        studentInput.addEventListener('compositionstart', function() {
+            isComposing = true;
+        });
+        studentInput.addEventListener('compositionend', function() {
+            isComposing = false;
+            matchNames();
+        });
+        studentInput.addEventListener('input', function() {
+            if (isComposing) return;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(matchNames, 100);
+        });
+        studentInput.addEventListener('focus', function() {
+            if (this.value.trim()) matchNames();
+        });
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.student-wrap')) {
+                studentDropdown.classList.remove('show');
+            }
+        });
+
+        // ========== 默认填充当前时间 ==========
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('datetime').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+        // ========== 表单提交 ==========
+        const form = document.getElementById('recordForm');
+        const tip = document.getElementById('tip');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const type = document.querySelector('input[name="type"]:checked').value;
+            const datetimeValue = document.getElementById('datetime').value;
+            const student = document.getElementById('student').value.trim();
+            const content = document.getElementById('content').value.trim();
+
+            if (!student || !content) {
+                showTip('请填写学生姓名和记录内容', 'error');
+                return;
+            }
+
+            // 生成文件名前缀
+            const datePart = datetimeValue.replace(/-/g, '').split('T')[0];
+            const timePart = datetimeValue.split('T')[1].replace(':', '');
+            const datetimeStr = `${datePart}_${timePart}`;
+            const baseFileName = `${datetimeStr}_${type}_${student}`;
+
+            // 生成Markdown
+            const mdFileName = `${baseFileName}.md`;
+            let mdContent = `# 班级记录
+
+- **日期时间**：${datetimeValue.replace('T', ' ')}
+- **类型**：${type}
+- **学生**：${student}
+- **内容**：${content}
+`;
+            if (selectedFiles.length > 0) {
+                mdContent += `- **附件**：\n`;
+                selectedFiles.forEach((file, i) => {
+                    mdContent += `  ${i+1}. ${file.name}\n`;
+                });
+            }
+
+            // 下载Markdown
+            downloadFile(mdContent, mdFileName, 'text/markdown;charset=utf-8');
+
+            // 批量下载附件
+            selectedFiles.forEach(file => {
+                const attachFileName = `${baseFileName}_${file.name}`;
+                downloadFile(file, attachFileName, file.type);
+            });
+
+            showTip('记录与附件已生成下载', 'success');
+
+            // 重置表单
+            document.getElementById('student').value = '';
+            document.getElementById('content').value = '';
+            selectedFiles = [];
+            renderFileList();
+            document.getElementById('student').focus();
+        });
+
+        // 通用下载函数
+        function downloadFile(data, fileName, mimeType) {
+            let blob;
+            if (data instanceof File) {
+                blob = data;
+            } else {
+                blob = new Blob([data], { type: mimeType });
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showTip(text, type) {
+            tip.textContent = text;
+            tip.className = `tip ${type}`;
+            setTimeout(() => {
+                tip.textContent = '';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
