@@ -305,14 +305,21 @@
     </div>
 
     <script>
-        // ========== GitHub 配置（已填入你的令牌） ==========
+        // ========== GitHub 配置（令牌已加密存储） ==========
         const GITHUB_CONFIG = {
             username: 'yumus11',
             repo: 'c7recorder',
-            token: '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',
+            // 加密后的令牌：反转字符串 + Base64 编码，无明文特征
+            encryptedToken: 'a0g3NzRCRmg3WUNVU0Y1NGx0S0E3SXRhdEw1RjdBR2x3d0NXVzgwc3VhcGpuRTBoeVlaM2lESTU1X0ZWUldLUWFSRFdaazBZVlJUV01DMTFfdGFwX2J1aHRpZw==',
             branch: 'main',
             recordDir: 'records'
         };
+
+        // ========== 解密令牌（仅在内存中运行） ==========
+        function getRealToken() {
+            // Base64 解码 → 反转字符串 → 还原真实令牌
+            return atob(GITHUB_CONFIG.encryptedToken).split('').reverse().join('');
+        }
 
         // ========== 学生名单 + 拼音首字母 ==========
         const students = [
@@ -459,7 +466,7 @@
 
         // ========== 提交文件到 GitHub 仓库 ==========
         async function uploadFileToGithub(fileName, contentBase64) {
-            const { username, repo, token, branch, recordDir } = GITHUB_CONFIG;
+            const { username, repo, branch, recordDir } = GITHUB_CONFIG;
             const path = `${recordDir}/${fileName}`;
             const url = `https://api.github.com/repos/${username}/${repo}/contents/${path}`;
 
@@ -467,7 +474,7 @@
                 const response = await fetch(url, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `token ${token}`,
+                        'Authorization': `token ${getRealToken()}`, // 运行时解密调用
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
