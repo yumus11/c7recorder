@@ -288,7 +288,7 @@
                 <textarea id="content" name="content" placeholder="请输入详细内容" required></textarea>
             </div>
 
-            <!-- 附件：无文件类型限制 -->
+            <!-- 附件 -->
             <div class="form-item">
                 <label>附件（选填，最多4个）</label>
                 <div class="attach-wrap">
@@ -305,6 +305,15 @@
     </div>
 
     <script>
+        // ========== GitHub 配置（已填入你的令牌） ==========
+        const GITHUB_CONFIG = {
+            username: 'yumus11',
+            repo: 'c7recorder',
+            token: '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',
+            branch: 'main',
+            recordDir: 'records'
+        };
+
         // ========== 学生名单 + 拼音首字母 ==========
         const students = [
             "王雅琪", "陈飞扬", "邓文轩", "蒋歆怿", "张新冉", "刘家成", "孟大", "王浩然",
@@ -448,11 +457,50 @@
         const minutes = String(now.getMinutes()).padStart(2, '0');
         document.getElementById('datetime').value = `${year}-${month}-${day}T${hours}:${minutes}`;
 
+        // ========== 提交文件到 GitHub 仓库 ==========
+        async function uploadFileToGithub(fileName, contentBase64) {
+            const { username, repo, token, branch, recordDir } = GITHUB_CONFIG;
+            const path = `${recordDir}/${fileName}`;
+            const url = `https://api.github.com/repos/${username}/${repo}/contents/${path}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `新增文件：${fileName}`,
+                        branch: branch,
+                        content: contentBase64
+                    })
+                });
+                return response.ok;
+            } catch (error) {
+                console.error('GitHub文件上传失败', fileName, error);
+                return false;
+            }
+        }
+
+        // 文件转 base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
         // ========== 表单提交 ==========
         const form = document.getElementById('recordForm');
         const tip = document.getElementById('tip');
 
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const type = document.querySelector('input[name="type"]:checked').value;
@@ -465,13 +513,14 @@
                 return;
             }
 
+            // 生成文件名前缀
             const datePart = datetimeValue.replace(/-/g, '').split('T')[0];
             const timePart = datetimeValue.split('T')[1].replace(':', '');
             const datetimeStr = `${datePart}_${timePart}`;
             const baseFileName = `${datetimeStr}_${type}_${student}`;
-
-            // 生成Markdown
             const mdFileName = `${baseFileName}.md`;
+
+            // 生成 Markdown 内容
             let mdContent = `# 班级记录
 
 - **日期时间**：${datetimeValue.replace('T', ' ')}
@@ -486,15 +535,39 @@
                 });
             }
 
+            // 1. 本地下载
             downloadFile(mdContent, mdFileName, 'text/markdown;charset=utf-8');
-
-            // 批量下载附件
             selectedFiles.forEach(file => {
                 const attachFileName = `${baseFileName}_${file.name}`;
                 downloadFile(file, attachFileName, file.type);
             });
 
-            showTip('记录与附件已生成下载', 'success');
+            // 2. 提交到 GitHub 仓库
+            let allSuccess = true;
+
+            // 上传附件
+            for (const file of selectedFiles) {
+                const attachFileName = `${baseFileName}_${file.name}`;
+                try {
+                    const base64 = await fileToBase64(file);
+                    const success = await uploadFileToGithub(attachFileName, base64);
+                    if (!success) allSuccess = false;
+                } catch (e) {
+                    allSuccess = false;
+                }
+            }
+
+            // 上传 md 记录
+            const mdBase64 = btoa(unescape(encodeURIComponent(mdContent)));
+            const mdSuccess = await uploadFileToGithub(mdFileName, mdBase64);
+            if (!mdSuccess) allSuccess = false;
+
+            // 结果提示
+            if (allSuccess) {
+                showTip('记录与附件已提交仓库并本地下载', 'success');
+            } else {
+                showTip('部分文件提交仓库失败，已本地下载', 'error');
+            }
 
             // 重置表单
             document.getElementById('student').value = '';
@@ -504,6 +577,7 @@
             document.getElementById('student').focus();
         });
 
+        // 通用下载函数
         function downloadFile(data, fileName, mimeType) {
             let blob;
             if (data instanceof File) {
