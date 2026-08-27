@@ -102,7 +102,11 @@
             margin-top: 8px;
             transition: background-color 0.2s;
         }
-        .submit-btn:active {
+        .submit-btn:disabled {
+            background-color: #9bc9ff;
+            cursor: not-allowed;
+        }
+        .submit-btn:active:not(:disabled) {
             background-color: #3a8ee6;
         }
         .tip {
@@ -299,25 +303,23 @@
                 </div>
             </div>
 
-            <button type="submit" class="submit-btn">提交并生成记录</button>
+            <button type="submit" class="submit-btn" id="submitBtn">提交并保存记录</button>
             <div id="tip" class="tip"></div>
         </form>
     </div>
 
     <script>
-        // ========== GitHub 配置（令牌已加密存储） ==========
+        // ========== GitHub 配置（令牌加密存储） ==========
         const GITHUB_CONFIG = {
             username: 'yumus11',
             repo: 'c7recorder',
-            // 加密后的令牌：反转字符串 + Base64 编码，无明文特征
             encryptedToken: 'a0g3NzRCRmg3WUNVU0Y1NGx0S0E3SXRhdEw1RjdBR2x3d0NXVzgwc3VhcGpuRTBoeVlaM2lESTU1X0ZWUldLUWFSRFdaazBZVlJUV01DMTFfdGFwX2J1aHRpZw==',
             branch: 'main',
             recordDir: 'records'
         };
 
-        // ========== 解密令牌（仅在内存中运行） ==========
+        // 解密令牌（仅内存中运行）
         function getRealToken() {
-            // Base64 解码 → 反转字符串 → 还原真实令牌
             return atob(GITHUB_CONFIG.encryptedToken).split('').reverse().join('');
         }
 
@@ -343,6 +345,7 @@
         const fileInput = document.getElementById('attachment');
         const fileListEl = document.getElementById('fileList');
         const fileCountTip = document.getElementById('fileCountTip');
+        const submitBtn = document.getElementById('submitBtn');
         let selectedFiles = [];
 
         fileInput.addEventListener('change', function(e) {
@@ -464,7 +467,7 @@
         const minutes = String(now.getMinutes()).padStart(2, '0');
         document.getElementById('datetime').value = `${year}-${month}-${day}T${hours}:${minutes}`;
 
-        // ========== 提交文件到 GitHub 仓库 ==========
+        // ========== 严格校验：上传文件到 GitHub 仓库 ==========
         async function uploadFileToGithub(fileName, contentBase64) {
             const { username, repo, branch, recordDir } = GITHUB_CONFIG;
             const path = `${recordDir}/${fileName}`;
@@ -474,18 +477,25 @@
                 const response = await fetch(url, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `token ${getRealToken()}`, // 运行时解密调用
+                        'Authorization': `token ${getRealToken()}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        message: `新增文件：${fileName}`,
+                        message: `新增记录：${fileName}`,
                         branch: branch,
                         content: contentBase64
                     })
                 });
-                return response.ok;
+
+                // 严格校验：只有 201 Created 才是真正创建成功
+                if (response.status === 201) {
+                    return true;
+                } else {
+                    console.error('上传失败，状态码：', response.status, fileName);
+                    return false;
+                }
             } catch (error) {
-                console.error('GitHub文件上传失败', fileName, error);
+                console.error('上传异常：', fileName, error);
                 return false;
             }
         }
@@ -542,41 +552,51 @@
                 });
             }
 
-            // 1. 本地下载
-            downloadFile(mdContent, mdFileName, 'text/markdown;charset=utf-8');
-            selectedFiles.forEach(file => {
-                const attachFileName = `${baseFileName}_${file.name}`;
-                downloadFile(file, attachFileName, file.type);
-            });
+            // 锁定按钮，防止重复提交
+            submitBtn.disabled = true;
+            showTip('正在上传到仓库...', '');
 
-            // 2. 提交到 GitHub 仓库
+            // 全部上传到 GitHub 仓库，全成功才判定成功
             let allSuccess = true;
 
-            // 上传附件
+            // 1. 上传所有附件
             for (const file of selectedFiles) {
                 const attachFileName = `${baseFileName}_${file.name}`;
                 try {
                     const base64 = await fileToBase64(file);
                     const success = await uploadFileToGithub(attachFileName, base64);
-                    if (!success) allSuccess = false;
+                    if (!success) {
+                        allSuccess = false;
+                        break; // 有一个失败就终止后续上传
+                    }
+                } catch (e) {
+                    allSuccess = false;
+                    break;
+                }
+            }
+
+            // 2. 附件全部成功后，再上传 md 记录文件
+            if (allSuccess) {
+                try {
+                    const mdBase64 = btoa(unescape(encodeURIComponent(mdContent)));
+                    const mdSuccess = await uploadFileToGithub(mdFileName, mdBase64);
+                    if (!mdSuccess) {
+                        allSuccess = false;
+                    }
                 } catch (e) {
                     allSuccess = false;
                 }
             }
 
-            // 上传 md 记录
-            const mdBase64 = btoa(unescape(encodeURIComponent(mdContent)));
-            const mdSuccess = await uploadFileToGithub(mdFileName, mdBase64);
-            if (!mdSuccess) allSuccess = false;
-
             // 结果提示
             if (allSuccess) {
-                showTip('记录与附件已提交仓库并本地下载', 'success');
+                showTip(`${mdFileName} 保存成功`, 'success');
             } else {
-                showTip('部分文件提交仓库失败，已本地下载', 'error');
+                showTip('上传失败，请检查网络或令牌权限', 'error');
             }
 
-            // 重置表单
+            // 解锁按钮，重置表单
+            submitBtn.disabled = false;
             document.getElementById('student').value = '';
             document.getElementById('content').value = '';
             selectedFiles = [];
@@ -584,30 +604,14 @@
             document.getElementById('student').focus();
         });
 
-        // 通用下载函数
-        function downloadFile(data, fileName, mimeType) {
-            let blob;
-            if (data instanceof File) {
-                blob = data;
-            } else {
-                blob = new Blob([data], { type: mimeType });
-            }
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
         function showTip(text, type) {
             tip.textContent = text;
             tip.className = `tip ${type}`;
-            setTimeout(() => {
-                tip.textContent = '';
-            }, 2000);
+            if (type === 'success') {
+                setTimeout(() => {
+                    tip.textContent = '';
+                }, 3000);
+            }
         }
     </script>
 </body>
